@@ -61,6 +61,7 @@ open class SSLSecurity : SSLTrustValidator {
     var certificates: [Data]? //the certificates
     var pubKeys: [SecKey]? //the public keys
     var usePublicKeys = false //use public keys or certificate validation?
+    public var disableSSLPinning = false
     
     /**
     Use certs from main app bundle
@@ -69,7 +70,7 @@ open class SSLSecurity : SSLTrustValidator {
     
     - returns: a representation security object to be used with
     */
-    public convenience init(usePublicKeys: Bool = false) {
+    public convenience init(usePublicKeys: Bool = false, disableSSLPinning: Bool = false) {
         let paths = Bundle.main.paths(forResourcesOfType: "cer", inDirectory: ".")
         
         let certs = paths.reduce([SSLCert]()) { (certs: [SSLCert], path: String) -> [SSLCert] in
@@ -81,6 +82,7 @@ open class SSLSecurity : SSLTrustValidator {
         }
         
         self.init(certs: certs, usePublicKeys: usePublicKeys)
+        self.disableSSLPinning = disableSSLPinning
     }
     
     /**
@@ -177,9 +179,9 @@ open class SSLSecurity : SSLTrustValidator {
                             break
                         }
                     }
-                }
-                if trustedCount == serverCerts.count {
-                    return true
+                    if trustedCount == serverCerts.count {
+                        return true
+                    }
                 }
             }
         }
