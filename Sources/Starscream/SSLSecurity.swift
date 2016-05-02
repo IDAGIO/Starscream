@@ -63,6 +63,7 @@ open class SSLSecurity : SSLTrustValidator {
     var certificates: [Data]? //the certificates
     var pubKeys: [SecKey]? //the public keys
     var usePublicKeys = false //use public keys or certificate validation?
+    public var disableSSLPinning = false
     
     /**
     Use certs from main app bundle
@@ -81,7 +82,7 @@ open class SSLSecurity : SSLTrustValidator {
             }
             return certs
         }
-        
+
         self.init(certs: certs, usePublicKeys: usePublicKeys)
     }
     
@@ -182,9 +183,9 @@ open class SSLSecurity : SSLTrustValidator {
                             break
                         }
                     }
-                }
-                if trustedCount == serverCerts.count {
-                    return true
+                    if trustedCount == serverCerts.count {
+                        return true
+                    }
                 }
             }
         }
