@@ -93,7 +93,7 @@ public class WebSocket : NSObject, NSStreamDelegate {
     public var onPong: ((Void) -> Void)?
     public var headers = Dictionary<String,String>()
     public var voipEnabled = false
-    public var selfSignedSSL = false
+    public var disableServerTrustEvaluation = false
     public var security: SSLSecurity?
     public var enabledSSLCipherSuites: [SSLCipherSuite]?
     public var isConnected :Bool {
@@ -240,7 +240,7 @@ public class WebSocket : NSObject, NSStreamDelegate {
             inStream.setProperty(NSStreamNetworkServiceTypeVoIP, forKey: NSStreamNetworkServiceType)
             outStream.setProperty(NSStreamNetworkServiceTypeVoIP, forKey: NSStreamNetworkServiceType)
         }
-        if selfSignedSSL {
+        if disableServerTrustEvaluation {
             let settings: Dictionary<NSObject, NSObject> = [kCFStreamSSLValidatesCertificateChain: NSNumber(bool:false), kCFStreamSSLPeerName: kCFNull]
             inStream.setProperty(settings, forKey: kCFStreamPropertySSLSettings as String)
             outStream.setProperty(settings, forKey: kCFStreamPropertySSLSettings as String)

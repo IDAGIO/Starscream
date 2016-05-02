@@ -45,6 +45,7 @@ public class SSLSecurity {
     var certificates: [NSData]? //the certificates
     var pubKeys: [SecKeyRef]? //the public keys
     var usePublicKeys = false //use public keys or certificate validation?
+    public var disableSSLPinning = false
     
     /**
     Use certs from main app bundle
@@ -53,7 +54,7 @@ public class SSLSecurity {
     
     - returns: a representation security object to be used with
     */
-    public convenience init(usePublicKeys: Bool = false) {
+    public convenience init(usePublicKeys: Bool = false, disableSSLPinning: Bool = false) {
         let paths = NSBundle.mainBundle().pathsForResourcesOfType("cer", inDirectory: ".")
         var collect = Array<SSLCert>()
         for path in paths {
@@ -62,6 +63,7 @@ public class SSLSecurity {
             }
         }
         self.init(certs:collect, usePublicKeys: usePublicKeys)
+        self.disableSSLPinning = disableSSLPinning
     }
     
     /**
@@ -148,17 +150,21 @@ public class SSLSecurity {
             SecTrustEvaluate(trust,&result)
             let r = Int(result)
             if r == kSecTrustResultUnspecified || r == kSecTrustResultProceed {
-                var trustedCount = 0
-                for serverCert in serverCerts {
-                    for cert in certs {
-                        if cert == serverCert {
-                            trustedCount++
-                            break
+                if disableSSLPinning {
+                    return true
+                } else {
+                    var trustedCount = 0
+                    for serverCert in serverCerts {
+                        for cert in certs {
+                            if cert == serverCert {
+                                trustedCount++
+                                break
+                            }
                         }
                     }
-                }
-                if trustedCount == serverCerts.count {
-                    return true
+                    if trustedCount == serverCerts.count {
+                        return true
+                    }
                 }
             }
         }
