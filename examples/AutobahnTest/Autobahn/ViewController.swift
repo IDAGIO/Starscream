@@ -11,9 +11,8 @@ import Starscream
 
 class ViewController: UIViewController {
     
-    static let host = "localhost:9001"
-    static let scheme = "ws"
-    var socket = WebSocket(url: NSURL(scheme: scheme, host: host, path: "/getCaseCount")!, protocols: [])
+    let host = "localhost:9001"
+    var socketArray = [WebSocket]()
     var caseCount = 300 //starting cases
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -21,22 +20,31 @@ class ViewController: UIViewController {
         //getTestInfo(1)
     }
     
+    func removeSocket(_ s: WebSocket) {
+        socketArray = socketArray.filter{$0 != s}
+    }
+    
     func getCaseCount() {
-        socket.onText = {(text: String) in
+        
+        let s = WebSocket(url: URL(string: "ws://\(host)/getCaseCount")!, protocols: [])
+        socketArray.append(s)
+        s.onText = {[unowned self] (text: String) in
             if let c = Int(text) {
                 print("number of cases is: \(c)")
                 self.caseCount = c
             }
         }
-        socket.onDisconnect = {(error: NSError?) in
+        s.onDisconnect = {[unowned self] (error: NSError?) in
             self.getTestInfo(1)
+            self.removeSocket(s)
         }
-        socket.connect()
+        s.connect()
     }
     
-    func getTestInfo(caseNum: Int) {
-        socket = createSocket("getCaseInfo",caseNum)
-        socket.onText = {(text: String) in
+    func getTestInfo(_ caseNum: Int) {
+        let s = createSocket("getCaseInfo",caseNum)
+        socketArray.append(s)
+        s.onText = {(text: String) in
 //            let data = text.dataUsingEncoding(NSUTF8StringEncoding)
 //            do {
 //                let resp: AnyObject? = try NSJSONSerialization.JSONObjectWithData(data!,
@@ -54,41 +62,45 @@ class ViewController: UIViewController {
 
         }
         var once = false
-        socket.onDisconnect = {(error: NSError?) in
+        s.onDisconnect = {[unowned self] (error: NSError?) in
             if !once {
                 once = true
                 self.runTest(caseNum)
             }
+            self.removeSocket(s)
         }
-        socket.connect()
+        s.connect()
     }
     
-    func runTest(caseNum: Int) {
-        socket = createSocket("runCase",caseNum)
-        socket.onText = {(text: String) in
-            self.socket.writeString(text)
+    func runTest(_ caseNum: Int) {
+        let s = createSocket("runCase",caseNum)
+        self.socketArray.append(s)
+        s.onText = {(text: String) in
+            s.write(string: text)
         }
-        socket.onData = {(data: NSData) in
-            self.socket.writeData(data)
+        s.onData = {(data: Data) in
+            s.write(data: data)
         }
         var once = false
-        socket.onDisconnect = {(error: NSError?) in
+        s.onDisconnect = {[unowned self] (error: NSError?) in
             if !once {
                 once = true
                 print("case:\(caseNum) finished")
                 self.verifyTest(caseNum)
+                self.removeSocket(s)
             }
         }
-        socket.connect()
+        s.connect()
     }
     
-    func verifyTest(caseNum: Int) {
-        socket = createSocket("getCaseStatus",caseNum)
-        socket.onText = {(text: String) in
-            let data = text.dataUsingEncoding(NSUTF8StringEncoding)
+    func verifyTest(_ caseNum: Int) {
+        let s = createSocket("getCaseStatus",caseNum)
+        self.socketArray.append(s)
+        s.onText = {(text: String) in
+            let data = text.data(using: String.Encoding.utf8)
             do {
-                let resp: AnyObject? = try NSJSONSerialization.JSONObjectWithData(data!,
-                    options: NSJSONReadingOptions())
+                let resp: Any? = try JSONSerialization.jsonObject(with: data!,
+                    options: JSONSerialization.ReadingOptions())
                 if let dict = resp as? Dictionary<String,String> {
                     if let status = dict["behavior"] {
                         if status == "OK" {
@@ -103,7 +115,7 @@ class ViewController: UIViewController {
             }
         }
         var once = false
-        socket.onDisconnect = {(error: NSError?) in
+        s.onDisconnect = {[unowned self] (error: NSError?) in
             if !once {
                 once = true
                 let nextCase = caseNum+1
@@ -113,24 +125,26 @@ class ViewController: UIViewController {
                     self.finishReports()
                 }
             }
+            self.removeSocket(s)
         }
-        socket.connect()
+        s.connect()
     }
     
     func finishReports() {
-        socket = createSocket("updateReports",0)
-        socket.onDisconnect = {(error: NSError?) in
+        let s = createSocket("updateReports",0)
+        self.socketArray.append(s)
+        s.onDisconnect = {[unowned self] (error: NSError?) in
             print("finished all the tests!")
+            self.removeSocket(s)
         }
-        socket.connect()
+        s.connect()
     }
     
-    func createSocket(cmd: String, _ caseNum: Int) -> WebSocket {
-        return WebSocket(url: NSURL(scheme: ViewController.scheme,
-            host: ViewController.host, path: buildPath(cmd,caseNum))!, protocols: [])
+    func createSocket(_ cmd: String, _ caseNum: Int) -> WebSocket {
+        return WebSocket(url: URL(string: "ws://\(host)\(buildPath(cmd,caseNum))")!, protocols: [])
     }
     
-    func buildPath(cmd: String, _ caseNum: Int) -> String {
+    func buildPath(_ cmd: String, _ caseNum: Int) -> String {
         return "/\(cmd)?case=\(caseNum)&agent=Starscream"
     }
 
